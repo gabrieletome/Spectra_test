@@ -21,3 +21,7 @@ To sum up, `base R plot` is simpler and faster, but it is more difficult to
 customize the figures outside the function and to handle interactivity.
 `ggplot2` requires more dependencies and is a bit slower, but it is simpler to
 customize outside the function and to generate interactive plots.
+
+**Main Quarto document**: (spectra_plot_vs_ggplot_2.qmd)[https://github.com/gabrieletome/Spectra_test/blob/main/spectra_plot_vs_ggplot_2.qmd]
+ and its rendered version with the results
+(spectra_plot_vs_ggplot_2.html)[https://github.com/gabrieletome/Spectra_test/blob/main/spectra_plot_vs_ggplot_2.html]
