@@ -1,0 +1,117 @@
+---
+title: "Spectra benchmark: base R plot"
+format: html
+---
+
+```{r, echo=FALSE}
+library(microbenchmark)
+lib_base <- "test_env_base/library"
+```
+
+## Load test case
+
+```{r}
+fls <- c(
+    MsDataHub::PestMix1_DDA.mzML(),
+    MsDataHub::PestMix1_SWATH.mzML(),
+    MsDataHub::X20171016_POOL_POS_1_105.134.mzML(),
+    MsDataHub::X20171016_POOL_POS_3_105.134.mzML())
+
+sps_mzr <- Spectra::Spectra(fls, source = Spectra::MsBackendMzR())
+sps <- Spectra::setBackend(sps_mzr, Spectra::MsBackendMemory())
+sps
+```
+
+## Generate plot with Base R functions
+
+Load time of the library.
+
+```{r}
+res_plot_load <- microbenchmark(
+    library(Spectra, lib.loc = lib_base),
+    times = 1L)
+```
+
+### `plotSpectra()` with `MsBackendMemory()`
+
+```{r}
+res_plot_t1 <- microbenchmark(
+    plotSpectra(sps[1]),
+    plotSpectra(sps[10:12]),
+    plotSpectra(sps[100:110]),
+    times = 10L)
+
+res_plot_t1
+```
+
+### `plotSpectraMirror()` with `MsBackendMemory()`
+
+```{r}
+res_plot_mirror_t1 <- microbenchmark(
+    plotSpectraMirror(sps[184], sps[11053]),
+    times = 10L)
+
+res_plot_mirror_t1
+```
+
+### `plotSpectraOverlay()` with `MsBackendMemory()`
+
+```{r}
+res_plot_overlay_t1 <- microbenchmark(
+    plotSpectraOverlay(sps[1]),
+    plotSpectraOverlay(sps[10:12]),
+    plotSpectraOverlay(sps[100:110]),
+    plotSpectraOverlay(sps[1000:1100]),
+    plotSpectraOverlay(sps),
+    times = 10L)
+
+res_plot_overlay_t1
+```
+
+
+### `plotSpectra()` with `MsBackendMzR()`
+
+```{r}
+res_plot_t1_mzr <- microbenchmark(
+    plotSpectra(sps_mzr[1]),
+    plotSpectra(sps_mzr[10:12]),
+    plotSpectra(sps_mzr[100:110]),
+    times = 10L)
+
+res_plot_t1_mzr
+```
+
+### `plotSpectraMirror()` with `MsBackendMzR()`
+
+```{r}
+res_plot_mirror_t1_mzr <- microbenchmark(
+    plotSpectraMirror(sps_mzr[184], sps_mzr[11053]),
+    times = 10L)
+
+res_plot_mirror_t1_mzr
+```
+
+### `plotSpectraOverlay()` with `MsBackendMzR()`
+
+```{r}
+res_plot_overlay_t1_mzr <- microbenchmark(
+    plotSpectraOverlay(sps_mzr[1]),
+    plotSpectraOverlay(sps_mzr[10:12]),
+    plotSpectraOverlay(sps_mzr[100:110]),
+    times = 10L)
+
+res_plot_overlay_t1_mzr
+```
+
+### Save results
+
+```{r}
+res_to_save <- ls(pattern = "res_plot")
+save(list = res_to_save, file = "benchmark_plot.Rdata")
+```
+
+## SessionInfo
+
+```{r}
+sessionInfo()
+```

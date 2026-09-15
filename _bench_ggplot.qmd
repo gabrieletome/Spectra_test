@@ -1,0 +1,144 @@
+---
+title: "Spectra benchmark: ggplot2 plot"
+format: html
+execute:
+  warning: false
+---
+
+```{r, echo=FALSE}
+library(microbenchmark)
+lib_ggplot <- "test_env_ggplot/library"
+```
+
+## Load test case
+
+```{r}
+fls <- c(
+    MsDataHub::PestMix1_DDA.mzML(),
+    MsDataHub::PestMix1_SWATH.mzML(),
+    MsDataHub::X20171016_POOL_POS_1_105.134.mzML(),
+    MsDataHub::X20171016_POOL_POS_3_105.134.mzML())
+
+sps_mzr <- Spectra::Spectra(fls, source = Spectra::MsBackendMzR())
+sps <- Spectra::setBackend(sps_mzr, Spectra::MsBackendMemory())
+sps
+```
+
+## Generate plot with ggplot2 functions
+
+Load time of the library.
+
+```{r}
+res_ggplot_load <- microbenchmark(
+    library(Spectra, lib.loc = lib_ggplot),
+    times = 1L)
+```
+
+### `ggplotSpectra()` with `MsBackendMemory()`
+
+```{r}
+ggplotSpectra(sps[1])
+ggplotSpectra(sps[10:12])
+ggplotSpectra(sps[100:110])
+ggplotSpectra(sps[1000:1100])
+
+res_ggplot_t1 <- microbenchmark(
+    ggplotSpectra(sps[1]),
+    ggplotSpectra(sps[10:12]),
+    ggplotSpectra(sps[100:110]),
+    ggplotSpectra(sps[1000:1100]),
+    times = 10L)
+
+res_ggplot_t1
+```
+
+### `ggplotSpectraMirror()` with `MsBackendMemory()`
+
+```{r}
+ggplotSpectraMirror(sps[184], sps[11053])
+
+res_ggplot_mirror_t1 <- microbenchmark(
+    ggplotSpectraMirror(sps[184], sps[11053]),
+    times = 10L)
+
+res_ggplot_mirror_t1
+```
+
+### `ggplotSpectraOverlay()` with `MsBackendMemory()`
+
+```{r}
+ggplotSpectraOverlay(sps[1])
+ggplotSpectraOverlay(sps[10:12])
+ggplotSpectraOverlay(sps[100:110])
+ggplotSpectraOverlay(sps[1000:1100])
+ggplotSpectraOverlay(sps)
+
+res_ggplot_overlay_t1 <- microbenchmark(
+    ggplotSpectraOverlay(sps[1]),
+    ggplotSpectraOverlay(sps[10:12]),
+    ggplotSpectraOverlay(sps[100:110]),
+    ggplotSpectraOverlay(sps[1000:1100]),
+    ggplotSpectraOverlay(sps),
+    times = 10L)
+
+res_ggplot_overlay_t1
+```
+
+
+### `ggplotSpectra()` with `MsBackendMzR()`
+
+```{r}
+ggplotSpectra(sps_mzr[1])
+ggplotSpectra(sps_mzr[10:12])
+ggplotSpectra(sps_mzr[100:110])
+
+res_ggplot_t1_mzr <- microbenchmark(
+    ggplotSpectra(sps_mzr[1]),
+    ggplotSpectra(sps_mzr[10:12]),
+    ggplotSpectra(sps_mzr[100:110]),
+    times = 10L)
+
+res_ggplot_t1_mzr
+```
+
+### `ggplotSpectraMirror()` with `MsBackendMzR()`
+
+```{r}
+ggplotSpectraMirror(sps_mzr[184], sps_mzr[11053])
+
+res_ggplot_mirror_t1_mzr <- microbenchmark(
+    ggplotSpectraMirror(sps_mzr[184], sps_mzr[11053]),
+    times = 10L)
+
+res_ggplot_mirror_t1_mzr
+```
+
+### `ggplotSpectraOverlay()` with `MsBackendMzR()`
+
+```{r}
+ggplotSpectraOverlay(sps_mzr[1])
+ggplotSpectraOverlay(sps_mzr[10:12])
+ggplotSpectraOverlay(sps_mzr[100:110])
+
+res_ggplot_overlay_t1_mzr <- microbenchmark(
+    ggplotSpectraOverlay(sps_mzr[1]),
+    ggplotSpectraOverlay(sps_mzr[10:12]),
+    ggplotSpectraOverlay(sps_mzr[100:110]),
+    times = 10L)
+
+res_ggplot_overlay_t1_mzr
+```
+
+
+### Save results
+
+```{r}
+res_to_save <- ls(pattern = "res_ggplot")
+save(list = res_to_save, file = "benchmark_ggplot.Rdata")
+```
+
+## SessionInfo
+
+```{r}
+sessionInfo()
+```

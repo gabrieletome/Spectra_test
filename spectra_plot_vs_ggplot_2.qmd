@@ -1,0 +1,274 @@
+---
+title: "Spectra plot: base R plot vs ggplot2"
+format: html
+---
+
+# Base R plot vs ggplot2
+
+```{r, echo=FALSE}
+library(data.table)
+library(profmem)
+lib_base <- "test_env_base/library"
+lib_ggplot <- "test_env_ggplot/library"
+summarise_mb <- function(mb, label) {
+    df <- as.data.table(mb)[, .(median = median(time)/10^9), by = "expr"]
+    df$expr <- as.character(df$expr)
+    df$engine <- label
+    df$expr <- factor(df$expr, levels = sort(df$expr))
+    df
+}
+
+```
+
+In this document we will compare the Spectra plotting functions based on:
+
+- Base R plot
+- ggplot2
+
+## Installation
+
+First we compare how the ggplot/ggiraph dependencies affect the installation of
+Spectra. To do so, we will do a clean new installation of Spectra in two
+different folders.
+The installation with ggplot2 require many more dependencies.
+
+```{r, message = FALSE}
+## Prepare the folders
+dir.create(lib_base, recursive = TRUE, showWarnings = FALSE)
+dir.create(lib_ggplot, recursive = TRUE, showWarnings = FALSE)
+
+benchmark_install <- function(repo, lib_path, label = "") {
+    ## Clean downloaded package.
+    pak::pak_cleanup(force = TRUE)
+
+    BiocManager::install(version = "devel", update = FALSE, ask = FALSE)
+    options(repos = BiocManager::repositories())
+
+    t0 <- Sys.time()
+    result <- pak::pkg_install(
+        repo,
+        lib = lib_path,
+        ask = FALSE,
+        dependencies = TRUE,
+        upgrade = TRUE
+    )
+    t1 <- Sys.time()
+
+    list(
+        label = label,
+        time_sec = as.numeric(difftime(t1, t0, units = "secs")),
+        installed_pkgs = list.files(lib_path),
+        n_pkgs = length(list.files(lib_path))
+    )
+}
+
+res_base_install <- suppressMessages(benchmark_install("rformassspectrometry/Spectra",
+                                        lib_base, label = "Base"))
+
+res_ggplot_install <- suppressMessages(benchmark_install("gabrieletome/Spectra",
+                                        lib_ggplot, label = "ggPlot2"))
+
+comparison <- data.frame(
+    label = c(res_base_install$label, res_ggplot_install$label),
+    time_seconds = c(res_base_install$time_sec, res_ggplot_install$time_sec),
+    n_packages_installed = c(res_base_install$n_pkgs, res_ggplot_install$n_pkgs))
+print(comparison)
+```
+
+## Run the plotting benchmarks
+
+The two Spectra installs (`r lib_base` and `r lib_ggplot`) cannot both be
+loaded in this same R session.
+Instead, each half of the benchmark is a **separate `.qmd` file**
+(`_bench_base.qmd`, `_bench_ggplot.qmd`), and we render each of them with its
+own `quarto render` call. In this way we can compare the correctly the two
+function.
+
+```{r, results='hide'}
+system2("quarto", c("render", "_bench_base.qmd", "--to", "html"))
+system2("quarto", c("render", "_bench_ggplot.qmd", "--to", "html"))
+```
+
+## Compare the results: base plot VS ggplot
+
+Each child render saved its `microbenchmark` result objects to disk
+(`benchmark_plot.Rdata`, `benchmark_ggplot.Rdata`). We load both back into
+this session to build the final comparison.
+
+For the comparison we will use the same dataset used in the Spectra vignette.
+The data are loaded in memory using `MsBackendMemory()`, in this way we will
+check only the difference between base R plot and ggplot. Later in the vignette
+a smaller test based on `MsBackendMzR()` will be conducted.
+
+```{r}
+load("benchmark_plot.Rdata")
+load("benchmark_ggplot.Rdata")
+```
+
+- Each function runs 10 times to obtain a solid results.
+
+### Compare load time
+
+```{r}
+plot_load <- rbind(
+    summarise_mb(res_plot_load, "base R"),
+    summarise_mb(res_ggplot_load, "ggplot2")
+)
+plot_load
+```
+
+### `plotSpectra()`/`ggplotSpectra()` with `MsBackendMemory()`
+
+We start with the function `plotSpectra()` with 3 runs:
+- Plot a single spectra.
+- Plot 3 spectra.
+- Plot 11 spectra.
+- Plot 101 spectra.
+
+With 101 spectra gpglot2 generate the plot instead the base R function fail
+since exced the size limit.
+
+```{r}
+plot_summary <- rbind(
+    summarise_mb(res_plot_t1, "base R"),
+    summarise_mb(res_ggplot_t1, "ggplot2")
+)
+plot_summary
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(plot_summary, aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectra() vs ggplotSpectra(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+### `plotSpectraMirror()`/`ggplotSpectraMirror()` with `MsBackendMemory()`
+
+In this section we test the mirroring plot with 2 random spectra.
+
+```{r}
+mirror_summary <- rbind(
+    summarise_mb(res_plot_mirror_t1, "base R"),
+    summarise_mb(res_ggplot_mirror_t1, "ggplot2")
+)
+mirror_summary
+```
+
+```{r}
+
+ggplot(mirror_summary, aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectraMirror() vs ggplotSpectraMirror(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+### `plotSpectraOverlay()`/`ggplotSpectraOverlay()` with `MsBackendMemory()`
+
+Now we test the overlay plot. We perform 5 tests with different subset:
+- Overlay with 1 spectra.
+- Overlay with 3 spectra.
+- Overlay with 11 spectra.
+- Overlay with 101 spectra.
+- Overlay with all spectra.
+
+```{r}
+overlay_summary <- rbind(
+    summarise_mb(res_plot_overlay_t1, "base R"),
+    summarise_mb(res_ggplot_overlay_t1, "ggplot2")
+)
+overlay_summary
+```
+
+```{r}
+ggplot(overlay_summary[median < 5], aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectraOverlay() vs ggplotSpectraOverlay(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+```{r}
+ggplot(overlay_summary[median > 5], aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectraOverlay() vs ggplotSpectraOverlay(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+### `plotSpectra()`/`ggplotSpectra()` with `MsBackendMzR()`
+
+We start with the function `plotSpectra()` with 3 runs:
+- Plot a single spectra.
+- Plot 3 spectra.
+- Plot 11 spectra.
+
+```{r}
+plot_summary_mzr <- rbind(
+    summarise_mb(res_plot_t1_mzr, "base R"),
+    summarise_mb(res_ggplot_t1_mzr, "ggplot2")
+)
+plot_summary_mzr
+```
+
+```{r}
+ggplot(plot_summary_mzr, aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectra() vs ggplotSpectra() with MsBackendMzr(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+### `plotSpectraMirror()`/`ggplotSpectraMirror()` with `MsBackendMzR()`
+
+In this section we test the mirroring plot with 2 random spectra.
+
+```{r}
+mirror_summary_mzr <- rbind(
+    summarise_mb(res_plot_mirror_t1_mzr, "base R"),
+    summarise_mb(res_ggplot_mirror_t1_mzr, "ggplot2")
+)
+mirror_summary_mzr
+```
+
+```{r}
+
+ggplot(mirror_summary_mzr, aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectraMirror() vs ggplotSpectraMirror() with MsBackendMzr(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+### `plotSpectraOverlay()`/`ggplotSpectraOverlay()` with `MsBackendMzR()`
+
+Now we test the overlay plot. We perform 5 tests with different subset:
+- Overlay with 1 spectra.
+- Overlay with 3 spectra.
+- Overlay with 11 spectra.
+
+```{r}
+overlay_summary_mzr <- rbind(
+    summarise_mb(res_plot_overlay_t1_mzr, "base R"),
+    summarise_mb(res_ggplot_overlay_t1_mzr, "ggplot2")
+)
+overlay_summary_mzr
+```
+
+```{r}
+ggplot(overlay_summary_mzr, aes(x = expr, y = median, fill = engine)) +
+    geom_col(position = "dodge") +
+    labs(title = "plotSpectraOverlay() vs ggplotSpectraOverlay() with MsBackendMzr(): median time (s)",
+         x = NULL, y = "seconds") +
+    coord_flip()
+```
+
+## SessionInfo
+
+```{r}
+sessionInfo()
+```
